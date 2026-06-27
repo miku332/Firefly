@@ -24,7 +24,7 @@ export const profileConfig: ProfileConfig = {
 		{
 			name: "qq",
 			icon: "fa7-brands:qq",
-			url: "https://qun.qq.com/universal-share/share?ac=1&authKey=hskwnCIOqKezRCyxCoQkbAL1fuBm%2BvfWOLnbK9VDnupVmC4mANkHtj8sEPL3e%2B2H&busi_data=eyJncm91cENvZGUiOiIxMTAxODUzMjY2IiwidG9rZW4iOiIyZ2FhRzEwUDNIMVR1K0Q3RFlLY0RaNUNyblcrS1owQVdyY0prR25GeC9uelRLKzl2dHJSN3IwVjRxUmpGaXRnIiwidWluIjoiMjE4MDA1NjYxOSJ9&data=KzEMPZlquFZb3WncP7jpTaS3weTPqpr9F9dnsF-LL_pkMyV6-82H-0B3L5gkK0W3zX2yWLvkXp9zVYG04bifNNR7cCI6n_NtAI0f-V8Fs2k&svctype=5&tempid=h5_group_info",
+			url: "https://qm.qq.com/q/ckVB22yTwk",
 			showName: false,
 		},
 		{
