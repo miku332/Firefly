@@ -11,7 +11,7 @@ draft: false
 # 魅魔修女
 
 <div style="margin-top: -0.5rem; margin-bottom: 1.5rem; font-size: 0.95rem; color: #888;">
-  作者：<strong>@anaertailin</strong> ｜ 分类：角色皮肤MOD
+  作者：<strong>@anaertailin</strong>
 </div>
 
 ---
