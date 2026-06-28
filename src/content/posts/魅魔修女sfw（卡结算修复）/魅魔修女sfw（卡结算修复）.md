@@ -7,9 +7,6 @@ tags: [静默猎手, 角色皮肤MOD]
 category: 角色皮肤MOD
 draft: false
 ---
-
-# 魅魔修女
-
 <div style="margin-top: -0.5rem; margin-bottom: 1.5rem; font-size: 0.95rem; color: #888;">
   作者：<strong>@anaertailin</strong>
 </div>

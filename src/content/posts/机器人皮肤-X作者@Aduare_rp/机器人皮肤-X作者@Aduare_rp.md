@@ -7,9 +7,6 @@ tags: [故障机器人, 角色皮肤MOD]
 category: 角色皮肤MOD
 draft: false
 ---
-
-# 机器人皮肤
-
 <div style="margin-top: -0.5rem; margin-bottom: 1.5rem; font-size: 0.95rem; color: #888;">
   作者：<strong>@Aduare_rp</strong>（Twitter）
 </div>
