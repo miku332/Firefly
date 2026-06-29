@@ -184,6 +184,71 @@
 	function toggleRelease(id: number) {
 		expandedRelease = expandedRelease === id ? null : id;
 	}
+
+	// 下载测速（参考：HEAD 延迟估算速度）
+	const NODES = [
+		{ name: "美国通用节点", prefix: "https://proxy.gitwarp.top/" },
+		{ name: "韩国节点", prefix: "http://kr2-proxy.gitwarp.top:9980/" },
+		{ name: "香港节点", prefix: "http://gh.halonice.com/" },
+		{ name: "直连", prefix: "" },
+	];
+	let dm = false, dt = false, df = "";
+	let nr = [];
+
+	function estSpeed(latency) {
+		if (latency < 300) return 2500;
+		if (latency < 500) return 1500;
+		if (latency < 1000) return 800;
+		if (latency < 2000) return 300;
+		if (latency < 5000) return 100;
+		return 20;
+	}
+
+	async function ping(url, timeout = 3000) {
+		const s = performance.now();
+		const ctrl = new AbortController();
+		const t = setTimeout(() => ctrl.abort(), timeout);
+		try {
+			await fetch(url + (url.includes("?") ? "&" : "?") + "_t=" + Date.now(), {
+				method: "HEAD", mode: "no-cors", signal: ctrl.signal
+			});
+		} catch {}
+		clearTimeout(t);
+		return Math.round(performance.now() - s);
+	}
+
+	async function testNode(prefix, releaseUrl) {
+		const latency = await ping(prefix + releaseUrl, 8000);
+		if (latency >= 8000) return { success: false, latency: 8000, speed: 0, anomaly: true };
+		// 多次 ping 检测稳定性
+		const pings = [latency];
+		for (let i = 0; i < 2; i++) {
+			await new Promise(r => setTimeout(r, 100));
+			pings.push(await ping(prefix + releaseUrl, 3000));
+		}
+		const valid = pings.filter(p => p < 10000);
+		if (!valid.length) return { success: false, latency: 8000, speed: 0, anomaly: true };
+		const median = valid.slice().sort((a, b) => a - b)[Math.floor(valid.length / 2)];
+		const maxPing = Math.max(...valid);
+		const anomaly = maxPing > median * 3;
+		let speed = estSpeed(median);
+		if (anomaly) speed = Math.round(speed * 0.6);
+		return { success: true, latency: median, speed, anomaly };
+	}
+
+	async function hd(url, name) {
+		df = name; dm = true; dt = true;
+		nr = NODES.map(n => ({ name: n.name, speed: 0, ms: 0, url: n.prefix + url, status: "testing", note: "" }));
+		await Promise.allSettled(NODES.map(async (n, i) => {
+			try {
+				const r = await testNode(n.prefix, url);
+				nr[i] = { ...nr[i], ms: r.latency, speed: r.speed, status: r.success ? "done" : "error", note: r.anomaly ? "延迟异常" : "稳定" };
+			} catch { nr[i] = { ...nr[i], status: "error" }; }
+			nr = [...nr];
+		}));
+		dt = false;
+	}
+	function cm() { dm = false; }
 </script>
 
 <div class="releases-container">
@@ -247,10 +312,8 @@
 										<div class="assets-list">
 											{#each release.assets as asset}
 												<a
-													href={`https://tvv.tw/${asset.browser_download_url}`}
-													target="_blank"
-													rel="noopener noreferrer"
-													class="asset-item"
+													href="javascript:void(0)" on:click|preventDefault={() => hd(asset.browser_download_url, asset.name)}
+																											class="asset-item"
 												>
 													<div class="asset-info">
 														<span class="asset-name">{asset.name}</span>
@@ -267,9 +330,7 @@
 											{/each}
 											<a
 												href={release.html_url}
-												target="_blank"
-												rel="noopener noreferrer"
-												class="view-on-github"
+																								class="view-on-github"
 											>
 												<Icon icon="material-symbols:open-in-new-rounded" class="meta-icon" />
 												在 GitHub 查看
@@ -345,6 +406,30 @@
 			{/if}
 		</div>
 	{/each}
+
+<!-- 测速 -->
+{#if dm}
+<div class="so" on:click={cm} role="dialog">
+<div class="sm" on:click={(e) => e.stopPropagation()}>
+<div class="sh"><h3 class="st">下载测速</h3><button class="sx" on:click={cm}><Icon icon="material-symbols:close-rounded" /></button></div>
+<div class="sr">
+{#each [...nr].sort((a, b) => b.speed - a.speed) as r}
+{@const b = [...nr].filter(x => x.status === "done").sort((a, b) => b.speed - a.speed)[0]}
+<div class="srr" class:best={r === b && r.speed > 0}>
+<span class="sn">{r.name}</span>
+<span class="si">
+{#if r.status === "testing"}<span class="ss" />{:else if r.status === "error"}<span class="se">超时</span>{:else}<span class="sv">{r.speed} KB/s</span>{/if}
+{#if r.status === "done"}<a href={r.url} target="_blank" class="sdl">下载</a>{/if}
+</span>
+</div>
+{/each}
+</div>
+{#if !dt && [...nr].every(r => r.status === "error")}
+<p class="se" style="text-align:center;margin-top:.5rem">全部超时，请稍后重试</p>
+{/if}
+</div>
+</div>
+{/if}
 </div>
 
 <style>
@@ -739,4 +824,23 @@
 			display: flex;
 		}
 	}
-</style>
+
+.so{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.sm{background:var(--card-bg);border-radius:var(--radius-large);padding:1.5rem;min-width:300px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2);max-height:90vh;overflow-y:auto}
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:.25rem}
+.st{font-size:1.1rem;font-weight:700;text-align:center;flex:1}
+.sx{display:flex;align-items:center;justify-content:center;width:2rem;height:2rem;border:none;background:transparent;cursor:pointer;border-radius:.5rem;color:var(--text-meta,rgba(0,0,0,.35));font-size:1.2rem;transition:all .15s ease;flex-shrink:0}
+.sx:hover{background:var(--btn-regular-bg-hover);color:var(--primary)}
+.sf{font-size:.8rem;opacity:.5;text-align:center;margin-bottom:1rem;word-break:break-all}
+.sr{display:flex;flex-direction:column;gap:.4rem}
+.srr{display:flex;align-items:center;justify-content:space-between;padding:.5rem .75rem;border-radius:.5rem;border:1px solid var(--line-divider);gap:.5rem}
+.srr.best{border-color:var(--primary);background:color-mix(in srgb, var(--primary) 8%, transparent)}
+.sn{font-weight:600;font-size:.9rem;flex-shrink:0}
+.si{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;justify-content:flex-end}
+.sdl{display:inline-flex;align-items:center;padding:.25rem .75rem;border-radius:999px;font-size:.78rem;font-weight:600;text-decoration:none;background:var(--btn-regular-bg);color:var(--btn-content);transition:all .15s ease;flex-shrink:0}
+.sdl:hover{background:var(--primary);color:#fff}
+.sn2{font-size:.8rem;opacity:.6}
+.sn3{font-size:.75rem;opacity:.5}
+.sv{font-weight:700;color:var(--primary);font-size:.85rem}
+.se{font-size:.8rem;color:var(--admonitions-color-warning, #e74c3c)}
+.ss{width:1rem;height:1rem;border:2px solid var(--line-divider);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}</style>
