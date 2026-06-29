@@ -19,5 +19,4 @@ export const githubReleasesConfig = {
 	] as GitHubRepo[],
 
 	/** API 缓存时间（秒），建议 300-600 */
-	cacheMaxAge: 600,
 };

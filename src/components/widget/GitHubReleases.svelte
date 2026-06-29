@@ -48,23 +48,63 @@
 		releasesMap = releasesMap;
 
 		try {
-			const res = await fetch(
-				`/api/github-releases.json?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`,
-			);
-			const json = await res.json();
-			if (json.error) {
-				releasesMap[key] = { loading: false, error: json.error, data: [], total: 0, currentPage: 1 };
-			} else {
-				releasesMap[key] = {
-					loading: false,
-					error: "",
-					data: json.releases || [],
-					total: json.total || 0,
-					currentPage: 1,
-				};
+			// 直接请求 GitHub API，分页获取全部 releases
+			const allReleases: Release[] = [];
+			let page = 1;
+			const perPage = 100;
+			let hasMore = true;
+
+			while (hasMore) {
+				const apiUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/releases?per_page=${perPage}&page=${page}`;
+				const res = await fetch(apiUrl, {
+					headers: { Accept: "application/vnd.github+json" },
+				});
+
+				if (!res.ok) {
+					throw new Error(`GitHub API 返回 ${res.status}`);
+				}
+
+				const data: Release[] = await res.json();
+				allReleases.push(...data);
+
+				if (data.length < perPage) {
+					hasMore = false;
+				} else {
+					page++;
+				}
 			}
-		} catch {
-			releasesMap[key] = { loading: false, error: "网络请求失败", data: [], total: 0, currentPage: 1 };
+
+			// 精简数据
+			const releases = allReleases.map((r) => ({
+				id: r.id,
+				tag_name: r.tag_name,
+				name: r.name || r.tag_name,
+				published_at: r.published_at,
+				html_url: r.html_url,
+				body: (r.body || "").slice(0, 500),
+				assets: (r.assets || []).map((a) => ({
+					name: a.name,
+					size: a.size,
+					browser_download_url: a.browser_download_url,
+					download_count: a.download_count,
+				})),
+			}));
+
+			releasesMap[key] = {
+				loading: false,
+				error: "",
+				data: releases,
+				total: releases.length,
+				currentPage: 1,
+			};
+		} catch (e: any) {
+			releasesMap[key] = {
+				loading: false,
+				error: e?.message || "网络请求失败",
+				data: [],
+				total: 0,
+				currentPage: 1,
+			};
 		}
 		releasesMap = releasesMap;
 	}
