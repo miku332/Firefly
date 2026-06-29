@@ -1,0 +1,709 @@
+<script lang="ts">
+	import Icon from "@/components/common/Icon.svelte";
+
+	interface Asset {
+		name: string;
+		size: number;
+		browser_download_url: string;
+		download_count: number;
+	}
+
+	interface Release {
+		id: number;
+		tag_name: string;
+		name: string;
+		published_at: string;
+		html_url: string;
+		body: string;
+		assets: Asset[];
+	}
+
+	interface RepoConfig {
+		owner: string;
+		repo: string;
+		label: string;
+	}
+
+	export let repos: RepoConfig[] = [];
+
+	const PER_PAGE = 10;
+
+	let releasesMap: Record<string, {
+		loading: boolean;
+		error: string;
+		data: Release[];
+		total: number;
+		currentPage: number;
+	}> = {};
+
+	function getKey(owner: string, repo: string) {
+		return `${owner}/${repo}`;
+	}
+
+	async function fetchReleases(owner: string, repo: string) {
+		const key = getKey(owner, repo);
+		if (releasesMap[key]?.data.length) return;
+
+		releasesMap[key] = { loading: true, error: "", data: [], total: 0, currentPage: 1 };
+		releasesMap = releasesMap;
+
+		try {
+			const res = await fetch(
+				`/api/github-releases.json?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`,
+			);
+			const json = await res.json();
+			if (json.error) {
+				releasesMap[key] = { loading: false, error: json.error, data: [], total: 0, currentPage: 1 };
+			} else {
+				releasesMap[key] = {
+					loading: false,
+					error: "",
+					data: json.releases || [],
+					total: json.total || 0,
+					currentPage: 1,
+				};
+			}
+		} catch {
+			releasesMap[key] = { loading: false, error: "网络请求失败", data: [], total: 0, currentPage: 1 };
+		}
+		releasesMap = releasesMap;
+	}
+
+	function getPageReleases(state: typeof releasesMap[string]): Release[] {
+		if (!state?.data) return [];
+		const start = (state.currentPage - 1) * PER_PAGE;
+		return state.data.slice(start, start + PER_PAGE);
+	}
+
+	function getTotalPages(state: typeof releasesMap[string]): number {
+		if (!state?.data) return 0;
+		return Math.ceil(state.data.length / PER_PAGE);
+	}
+
+	function goToPage(owner: string, repo: string, page: number) {
+		const key = getKey(owner, repo);
+		if (!releasesMap[key]) return;
+		releasesMap[key].currentPage = page;
+		releasesMap = releasesMap;
+		expandedRelease = null;
+	}
+
+	const ADJ_DIST = 2;
+	const VISIBLE = ADJ_DIST * 2 + 1;
+
+	function getPages(totalPages: number, currentPage: number): number[] {
+		const HIDDEN = -1;
+		let l = currentPage;
+		let r = currentPage;
+		let count = 1;
+		while (0 < l - 1 && r + 1 <= totalPages && count + 2 <= VISIBLE) {
+			count += 2; l--; r++;
+		}
+		while (0 < l - 1 && count < VISIBLE) { count++; l--; }
+		while (r + 1 <= totalPages && count < VISIBLE) { count++; r++; }
+
+		const pages: number[] = [];
+		if (l > 1) pages.push(1);
+		if (l === 3) pages.push(2);
+		if (l > 3) pages.push(HIDDEN);
+		for (let i = l; i <= r; i++) pages.push(i);
+		if (r < totalPages - 2) pages.push(HIDDEN);
+		if (r === totalPages - 2) pages.push(totalPages - 1);
+		if (r < totalPages) pages.push(totalPages);
+		return pages;
+	}
+
+	function formatSize(bytes: number): string {
+		if (bytes < 1024) return `${bytes} B`;
+		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+		if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+		return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+	}
+
+	function formatDate(dateStr: string): string {
+		return new Date(dateStr).toLocaleDateString("zh-CN", {
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+		});
+	}
+
+	let expandedRepo = "";
+	let expandedRelease: number | null = null;
+
+	function toggleRepo(owner: string, repo: string) {
+		const key = getKey(owner, repo);
+		if (expandedRepo === key) {
+			expandedRepo = "";
+		} else {
+			expandedRepo = key;
+			fetchReleases(owner, repo);
+		}
+	}
+
+	function toggleRelease(id: number) {
+		expandedRelease = expandedRelease === id ? null : id;
+	}
+</script>
+
+<div class="releases-container">
+	{#each repos as { owner, repo, label }}
+		{@const key = getKey(owner, repo)}
+		{@const state = releasesMap[key]}
+		<div class="repo-card">
+			<button
+				class="repo-header"
+				on:click={() => toggleRepo(owner, repo)}
+				aria-expanded={expandedRepo === key}
+			>
+				<div class="repo-title-row">
+					<Icon icon="material-symbols:chevron-right-rounded" class={`repo-arrow${expandedRepo === key ? ' expanded' : ''}`} />
+					<span class="repo-name">{label || repo}</span>
+					<span class="repo-path">{owner}/{repo}</span>
+				</div>
+				{#if state && !state.loading}
+					<span class="repo-count">{state.data.length} releases</span>
+				{/if}
+			</button>
+
+			{#if expandedRepo === key}
+				<div class="repo-content">
+					{#if state?.loading}
+						<div class="loading-state">
+							<div class="spinner" />
+							<span>加载中...</span>
+						</div>
+					{:else if state?.error}
+						<div class="error-state">
+							<Icon icon="material-symbols:error-outline-rounded" class="err-icon" />
+							<span>{state.error}</span>
+						</div>
+					{:else if state?.data.length === 0}
+						<div class="empty-state">
+							<Icon icon="material-symbols:inbox-outline-rounded" class="empty-icon" />
+							<span>暂无 release</span>
+						</div>
+					{:else}
+						{@const totalPages = getTotalPages(state)}
+						{@const pageReleases = getPageReleases(state)}
+						<div class="releases-list">
+							{#each pageReleases as release}
+								<div class="release-item">
+									<button
+										class="release-header"
+										on:click={() => toggleRelease(release.id)}
+									>
+										<div class="release-info">
+											<span class="release-tag">{release.tag_name}</span>
+											<span class="release-date">
+												<Icon icon="material-symbols:calendar-month-outline-rounded" class="meta-icon" />
+												{formatDate(release.published_at)}
+											</span>
+											{#if release.assets.length > 0}
+												<span class="release-assets-count">
+													<Icon icon="material-symbols:download" class="meta-icon" />
+													{release.assets.length}
+												</span>
+											{/if}
+										</div>
+										<Icon icon="material-symbols:chevron-right-rounded" class={`release-arrow${expandedRelease === release.id ? ' expanded' : ''}`} />
+									</button>
+
+									{#if expandedRelease === release.id}
+										<div class="assets-list">
+											{#each release.assets as asset}
+												<a
+													href={asset.browser_download_url}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="asset-item"
+												>
+													<div class="asset-info">
+														<span class="asset-name">{asset.name}</span>
+														<span class="asset-meta">
+															{formatSize(asset.size)}
+															<span aria-hidden="true">·</span>
+															{asset.download_count} 次下载
+														</span>
+													</div>
+													<span class="download-link">
+														<Icon icon="material-symbols:download" class="meta-icon" />
+														下载
+													</span>
+												</a>
+											{/each}
+											<a
+												href={release.html_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="view-on-github"
+											>
+												<Icon icon="material-symbols:open-in-new-rounded" class="meta-icon" />
+												在 GitHub 查看
+											</a>
+										</div>
+									{/if}
+								</div>
+							{/each}
+						</div>
+
+						{#if totalPages > 1}
+							<div class="pagination-wrapper">
+								<div class="pagination-bar" role="navigation">
+									<div class="mobile-pagination">
+										<button
+											class="btn-card rounded-lg btn-page"
+											disabled={state.currentPage <= 1}
+											on:click={() => goToPage(owner, repo, state.currentPage - 1)}
+										>
+											<Icon icon="material-symbols:chevron-left-rounded" />
+										</button>
+										<div class="btn-card rounded-lg btn-page-info">
+											<span class="btn-page-current">{state.currentPage}</span>
+											<span class="btn-page-divider">/</span>
+											<span class="btn-page-total">{totalPages}</span>
+										</div>
+										<button
+											class="btn-card rounded-lg btn-page"
+											disabled={state.currentPage >= totalPages}
+											on:click={() => goToPage(owner, repo, state.currentPage + 1)}
+										>
+											<Icon icon="material-symbols:chevron-right-rounded" />
+										</button>
+									</div>
+
+									<div class="desktop-pagination">
+										<button
+											class="btn-card rounded-lg btn-page"
+											disabled={state.currentPage <= 1}
+											on:click={() => goToPage(owner, repo, state.currentPage - 1)}
+										>
+											<Icon icon="material-symbols:chevron-left-rounded" />
+										</button>
+
+										{#each getPages(totalPages, state.currentPage) as p}
+											{#if p === -1}
+												<span class="btn-page-ellipsis">
+													<Icon icon="material-symbols:more-horiz" />
+												</span>
+											{:else if p === state.currentPage}
+												<span class="btn-page-active rounded-lg">{p}</span>
+											{:else}
+												<button
+													class="btn-card rounded-lg btn-page"
+													on:click={() => goToPage(owner, repo, p)}
+												>{p}</button>
+											{/if}
+										{/each}
+
+										<button
+											class="btn-card rounded-lg btn-page"
+											disabled={state.currentPage >= totalPages}
+											on:click={() => goToPage(owner, repo, state.currentPage + 1)}
+										>
+											<Icon icon="material-symbols:chevron-right-rounded" />
+										</button>
+									</div>
+								</div>
+							</div>
+						{/if}
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/each}
+</div>
+
+<style>
+	.releases-container {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.repo-card {
+		border-radius: var(--radius-large);
+		overflow: hidden;
+		border: 1px solid var(--line-divider);
+		background: var(--card-bg);
+	}
+
+	.repo-header {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1rem 1.25rem;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		font: inherit;
+		color: inherit;
+		gap: 1rem;
+	}
+
+	.repo-header:hover {
+		background: var(--btn-plain-bg-hover);
+	}
+
+	.repo-title-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-width: 0;
+		flex: 1;
+		text-align: left;
+	}
+
+	:global(.repo-arrow) {
+		flex-shrink: 0;
+		font-size: 1.2rem;
+		color: rgba(0,0,0,0.45);
+		transition: transform 0.25s ease, color 0.25s ease;
+	}
+	:global(.repo-arrow.expanded) {
+		color: var(--primary);
+		transform: rotate(90deg);
+	}
+	.repo-header:hover :global(.repo-arrow) {
+		color: var(--primary);
+	}
+	.dark :global(.repo-arrow) {
+		color: rgba(255,255,255,0.4);
+	}
+
+	.repo-name {
+		font-weight: 600;
+		font-size: 1rem;
+	}
+
+	.repo-path {
+		font-size: 0.8rem;
+		opacity: 0.6;
+	}
+
+	.repo-count {
+		flex-shrink: 0;
+		font-size: 0.75rem;
+		opacity: 0.55;
+	}
+
+	.repo-content {
+		padding: 0 1.25rem 1rem;
+		border-top: 1px dashed var(--line-divider);
+	}
+
+	.loading-state {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 1.5rem 0;
+		opacity: 0.75;
+	}
+
+	.spinner {
+		width: 1.2rem;
+		height: 1.2rem;
+		border: 2px solid var(--line-divider);
+		border-top-color: var(--primary);
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+
+	.error-state,
+	.empty-state {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 1.5rem 0;
+		opacity: 0.75;
+	}
+
+	.error-state {
+		color: var(--admonitions-color-warning, #e74c3c);
+	}
+
+	:global(.err-icon),
+	:global(.empty-icon) {
+		font-size: 1.1rem;
+	}
+
+	.releases-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.75rem 0;
+	}
+
+	.release-item {
+		border: 1px solid var(--line-divider);
+		border-radius: 0.75rem;
+		overflow: hidden;
+	}
+
+	.release-header {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.75rem 1rem;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		font: inherit;
+		color: inherit;
+		gap: 0.75rem;
+	}
+
+	.release-header:hover {
+		background: var(--btn-plain-bg-hover);
+	}
+
+	.release-info {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		min-width: 0;
+		font-size: 0.9rem;
+	}
+
+	.release-tag {
+		display: inline-flex;
+		align-items: center;
+		font-weight: 600;
+		padding: 0.15rem 0.5rem;
+		border-radius: 999px;
+		background: var(--primary);
+		color: #fff;
+		font-size: 0.8rem;
+	}
+
+	.release-date {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		opacity: 0.7;
+		font-size: 0.8rem;
+	}
+
+	.release-assets-count {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		opacity: 0.7;
+		font-size: 0.8rem;
+	}
+
+	:global(.release-arrow) {
+		flex-shrink: 0;
+		font-size: 1rem;
+		color: rgba(0,0,0,0.45);
+		transition: transform 0.25s ease, color 0.25s ease;
+	}
+	:global(.release-arrow.expanded) {
+		color: var(--primary);
+		transform: rotate(90deg);
+	}
+	.release-header:hover :global(.release-arrow) {
+		color: var(--primary);
+	}
+	.dark :global(.release-arrow) {
+		color: rgba(255,255,255,0.4);
+	}
+
+	:global(.meta-icon) {
+		font-size: 0.9em;
+		flex-shrink: 0;
+	}
+
+	.assets-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		padding: 0 0.75rem 0.75rem;
+	}
+
+	.asset-item {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.6rem 0.75rem;
+		border-radius: 0.5rem;
+		text-decoration: none;
+		color: inherit;
+		gap: 0.75rem;
+		transition: background 0.15s ease;
+	}
+
+	.asset-item:hover {
+		background: var(--btn-regular-bg-hover);
+	}
+
+	.asset-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		min-width: 0;
+	}
+
+	.asset-name {
+		font-weight: 500;
+		font-size: 0.9rem;
+	}
+
+	.asset-meta {
+		font-size: 0.75rem;
+		opacity: 0.65;
+		display: flex;
+		gap: 0.35rem;
+	}
+
+	.download-link {
+		flex-shrink: 0;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.3rem 0.9rem;
+		font-size: 0.8rem;
+		font-weight: 500;
+		border-radius: 999px;
+		background: var(--btn-regular-bg);
+		color: var(--btn-content);
+		transition: all 0.15s ease;
+	}
+
+	.asset-item:hover .download-link {
+		background: var(--btn-regular-bg-hover);
+	}
+
+	.view-on-github {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.5rem 0.75rem;
+		margin-top: 0.25rem;
+		font-size: 0.85rem;
+		color: var(--primary);
+		text-decoration: none;
+		border-radius: 0.5rem;
+		transition: background 0.15s ease;
+		width: fit-content;
+	}
+
+	.view-on-github:hover {
+		background: var(--btn-plain-bg-hover);
+	}
+
+	/* 翻页 */
+	.pagination-wrapper {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		padding: 1rem 0 0.25rem;
+	}
+
+	.pagination-bar {
+		display: flex;
+		justify-content: center;
+	}
+
+	.btn-page {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.75rem;
+		height: 2.75rem;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		font: inherit;
+		font-size: 1.25rem;
+		color: var(--primary);
+		transition: all 0.15s ease;
+	}
+
+	.btn-page:disabled {
+		opacity: 0.3;
+		cursor: not-allowed;
+	}
+
+	.btn-page:not(:disabled):hover {
+		background: var(--btn-regular-bg-hover);
+	}
+
+	.btn-page:not(:disabled):active {
+		transform: scale(0.95);
+	}
+
+	.btn-page-info {
+		display: flex;
+		align-items: center;
+		padding: 0 1rem;
+		height: 2.75rem;
+		gap: 0.375rem;
+	}
+
+	.btn-page-current {
+		font-weight: 700;
+		font-size: 1rem;
+		color: var(--primary);
+	}
+
+	.btn-page-divider {
+		font-size: 0.875rem;
+		opacity: 0.5;
+	}
+
+	.btn-page-total {
+		font-weight: 700;
+		font-size: 1rem;
+	}
+
+	.btn-page-active {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.75rem;
+		height: 2.75rem;
+		font-weight: 700;
+		background: var(--primary);
+		color: #fff;
+		border-radius: 0.5rem;
+	}
+
+	:global(.btn-page-ellipsis) {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.75rem;
+		height: 2.75rem;
+		font-size: 1.1rem;
+		opacity: 0.5;
+	}
+
+	.mobile-pagination {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.desktop-pagination {
+		display: none;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	@media (min-width: 1024px) {
+		.mobile-pagination {
+			display: none;
+		}
+		.desktop-pagination {
+			display: flex;
+		}
+	}
+</style>
