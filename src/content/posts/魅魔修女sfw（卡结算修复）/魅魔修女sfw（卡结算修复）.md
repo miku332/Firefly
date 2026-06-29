@@ -2,8 +2,8 @@
 title: 魅魔修女
 published: 2026-06-28
 image: ./cover.png
-tags: [静默猎手, 角色皮肤MOD]
-category: 角色皮肤MOD
+tags: [静默猎手, 角色皮肤]
+category: 静默猎手皮肤
 draft: false
 ---
 

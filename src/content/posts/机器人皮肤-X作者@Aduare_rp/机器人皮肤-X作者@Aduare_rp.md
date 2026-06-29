@@ -2,8 +2,8 @@
 title: 故障机器人皮肤
 published: 2026-06-28
 image: ./cover.png
-tags: [故障机器人, 角色皮肤MOD]
-category: 角色皮肤MOD
+tags: [故障机器人, 角色皮肤]
+category: 故障机器人皮肤
 draft: false
 ---
 
