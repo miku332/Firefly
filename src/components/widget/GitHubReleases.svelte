@@ -239,12 +239,6 @@
 												<Icon icon="material-symbols:calendar-month-outline-rounded" class="meta-icon" />
 												{formatDate(release.published_at)}
 											</span>
-											{#if release.assets.length > 0}
-												<span class="release-assets-count">
-													<Icon icon="material-symbols:download" class="meta-icon" />
-													{release.assets.length}
-												</span>
-											{/if}
 										</div>
 										<Icon icon="material-symbols:chevron-right-rounded" class={`release-arrow${expandedRelease === release.id ? ' expanded' : ''}`} />
 									</button>
@@ -253,7 +247,7 @@
 										<div class="assets-list">
 											{#each release.assets as asset}
 												<a
-													href={asset.browser_download_url}
+													href={`https://tvv.tw/${asset.browser_download_url}`}
 													target="_blank"
 													rel="noopener noreferrer"
 													class="asset-item"
@@ -267,7 +261,6 @@
 														</span>
 													</div>
 													<span class="download-link">
-														<Icon icon="material-symbols:download" class="meta-icon" />
 														下载
 													</span>
 												</a>
@@ -618,7 +611,7 @@
 	}
 
 	.asset-item:hover .download-link {
-		background: var(--btn-regular-bg-hover);
+		background: var(--primary); color: #fff;
 	}
 
 	.view-on-github {
