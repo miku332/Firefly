@@ -221,6 +221,7 @@
 </div>
 {/each}
 </div>
+<p class="stip">测速数据仅供参考，实际下载请自行选择</p>
 </div>
 </div>
 {/if}
