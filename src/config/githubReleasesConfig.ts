@@ -1,22 +1,33 @@
 /**
  * GitHub Releases 配置
- * 用于 /releases/ 页面展示指定仓库的 releases
+ * 用于 /releases/ 页面展示 GitHub 仓库的 releases
  */
 export interface GitHubRepo {
-	/** 仓库所有者 */
 	owner: string;
-	/** 仓库名称 */
 	repo: string;
-	/** 显示名称（可选，默认使用 repo） */
-	label?: string;
+	label: string;
+	/** 简短描述 */
+	desc?: string;
+	/** 封面图（/public 下的路径，如 /covers/xxx.png） */
+	cover?: string;
 }
 
 export const githubReleasesConfig = {
-	/** 要追踪的 GitHub 仓库列表 */
 	repos: [
-		{ owner: "Alchyr", repo: "BaseLib-StS2" },
-			{ owner: "BAKAOLC", repo: "STS2-RitsuLib" },
+		{
+			owner: "Alchyr",
+			repo: "BaseLib-StS2",
+			label: "BaseLib",
+			desc: "杀戮尖塔2 基础库模组",
+			cover: "/covers/baselib.png",
+		},
+		{
+			owner: "BAKAOLC",
+			repo: "STS2-RitsuLib",
+			label: "RitsuLib",
+			desc: "杀戮尖塔2 RitsuLib 模组",
+			cover: "/covers/ritsulib.png",
+		},
+	{ owner: "LuoTianOrange", repo: "STS2_WineFox", label: "酒狐", desc: "杀戮尖塔2 酒狐模组", cover: "/covers/jiuhu.png" },
 	] as GitHubRepo[],
-
-	/** API 缓存时间（秒），建议 300-600 */
 };

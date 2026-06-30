@@ -5,7 +5,7 @@ export const announcementConfig: AnnouncementConfig = {
 	title: "公告",
 
 	// 公告内容
-	content: "欢迎来到我的博客！今后我在这分享我的所见所闻",
+	content: "点击下方按钮跳转到下载前置模组页面",
 
 	// 是否允许用户关闭公告
 	closable: true,
@@ -14,7 +14,7 @@ export const announcementConfig: AnnouncementConfig = {
 		// 启用链接
 		enable: true,
 		// 链接文本
-		text: "了解更多",
+		text: "下载前置模组",
 		// 链接 URL
 		url: "/releases/",
 		// 内部链接
