@@ -586,3 +586,41 @@ html {
   @apply text-sm text-(--text-secondary) text-center mb-2;
 }
 
+/* NSFW 标签红色高亮 — 文章卡片、文章详情、侧边栏、标签云 */
+a[href*="tag=NSFW"] {
+  color: #e74c3c !important;
+  background: rgba(231, 76, 60, 0.12) !important;
+  border-color: rgba(231, 76, 60, 0.35) !important;
+}
+a[href*="tag=NSFW"]:hover {
+  background: rgba(231, 76, 60, 0.22) !important;
+  color: #c0392b !important;
+}
+.dark a[href*="tag=NSFW"] {
+  color: #ff6b6b !important;
+  background: rgba(255, 107, 107, 0.15) !important;
+  border-color: rgba(255, 107, 107, 0.35) !important;
+}
+.dark a[href*="tag=NSFW"]:hover {
+  background: rgba(255, 107, 107, 0.25) !important;
+  color: #ff8787 !important;
+}
+
+/* 归档页面文本标签中的 NSFW */
+.nsfw-tag-text {
+  color: #e74c3c !important;
+  background: rgba(231, 76, 60, 0.12);
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+}
+.dark .nsfw-tag-text {
+  color: #ff6b6b !important;
+  background: rgba(255, 107, 107, 0.15);
+}
+
+/* 蛊真人文章卡片预览图缩小 */
+.grid-mode a.post-card-image[href*="蛊真人"] {
+  aspect-ratio: 16/9 !important;
+  max-height: 220px;
+}
+

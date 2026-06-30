@@ -10,6 +10,12 @@ export interface GitHubRepo {
 	desc?: string;
 	/** 封面图（/public 下的路径，如 /covers/xxx.png） */
 	cover?: string;
+	/** 前置模组 */
+	prerequisite?: {
+		name: string;
+		/** 前置模组的 GitHub releases 页面或下载地址 */
+		url: string;
+	};
 }
 
 export const githubReleasesConfig = {
@@ -28,6 +34,16 @@ export const githubReleasesConfig = {
 			desc: "杀戮尖塔2 RitsuLib 模组",
 			cover: "/covers/ritsulib.png",
 		},
-	{ owner: "LuoTianOrange", repo: "STS2_WineFox", label: "酒狐", desc: "杀戮尖塔2 酒狐模组", cover: "/covers/jiuhu.png" },
+		{
+			owner: "LuoTianOrange",
+			repo: "STS2_WineFox",
+			label: "酒狐",
+			desc: "杀戮尖塔2 酒狐模组",
+			cover: "/covers/jiuhu.png",
+			prerequisite: {
+				name: "BaseLib",
+				url: "https://github.com/Alchyr/BaseLib-StS2/releases/latest",
+			},
+		},
 	] as GitHubRepo[],
 };

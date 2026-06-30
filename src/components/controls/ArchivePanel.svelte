@@ -75,7 +75,7 @@ function formatDate(date: Date) {
 }
 
 function formatTag(tagList: string[]) {
-	return tagList.map((t) => `#${t}`).join(" ");
+	return tagList.map((t) => t === "NSFW" ? `<span class="nsfw-tag-text">#${t}</span>` : `#${t}`).join(" ");
 }
 
 function formatFilterValues(filter: ActiveFilter) {
@@ -292,7 +292,7 @@ onMount(async () => {
 								class="hidden md:block md:w-[15%] text-left text-sm transition
                      whitespace-nowrap text-ellipsis overflow-hidden text-30"
 						>
-							{formatTag(post.data.tags)}
+							{@html formatTag(post.data.tags)}
 						</div>
 					</div>
 				</a>

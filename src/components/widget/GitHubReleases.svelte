@@ -1,9 +1,11 @@
 <script lang="ts">
+	import { onMount } from "svelte";
+	import { scale } from "svelte/transition";
 	import Icon from "@/components/common/Icon.svelte";
 
 	interface Asset { name: string; size: number; browser_download_url: string; download_count: number; }
 	interface Release { id: number; tag_name: string; name: string; published_at: string; html_url: string; body: string; assets: Asset[]; }
-	interface Repo { owner: string; repo: string; label: string; desc?: string; cover?: string; }
+	interface Repo { owner: string; repo: string; label: string; desc?: string; cover?: string; prerequisite?: { name: string; url: string; }; }
 
 	export let repos: Repo[] = [];
 	const PER_PAGE = 10;
@@ -116,13 +118,105 @@
 	async function hd(url: string, name: string) {
 		df = name; dm = true; dt = true;
 		nr = NODES.map(n => ({ name: n.name, speed: 0, url: n.prefix + url, status: "testing" }));
+		// 移动弹窗到 body 下，避免 #main-grid transform 导致 fixed 定位失效
+		setTimeout(() => {
+			const modal = document.querySelector('.so:not([data-moved])') as HTMLElement | null;
+			if (modal) {
+				modal.dataset.moved = 'true';
+				document.body.appendChild(modal);
+			}
+		}, 0);
 		await Promise.allSettled(NODES.map(async (n, i) => {
 			try { const r = await testNode(n.prefix, url); nr[i] = { ...nr[i], speed: r.speed, status: r.ok ? "done" : "error" }; } catch { nr[i] = { ...nr[i], status: "error" }; }
 			nr = [...nr];
 		}));
 		dt = false;
 	}
-	function cm() { dm = false; }
+	function cm() {
+		// 先手动移除已移到 body 的弹窗，避免 Svelte 清理不到
+		const modal = document.querySelector('.so[data-moved]') as HTMLElement | null;
+		if (modal) modal.remove();
+		dm = false;
+	}
+
+	// 自动跳转遮罩状态
+	let autoNavOverlay = false;
+	let autoNavText = "正在跳转";
+
+	// 自动跳转：支持 URL 参数 ?repo=owner/repo&version=vX.Y.Z&open=1
+	function initAutoNav() {
+		const params = new URLSearchParams(window.location.search);
+		const repoParam = params.get("repo");
+		const versionParam = params.get("version");
+		const openParam = params.get("open");
+
+		if (!repoParam || openParam !== "1") return;
+
+		const idx = repos.findIndex(r => `${r.owner}/${r.repo}` === repoParam);
+		if (idx < 0) return;
+
+		autoNavOverlay = true;
+		autoNavText = "正在定位模组…";
+		goDetail(idx);
+			setTimeout(() => {
+				const overlay = document.querySelector('.so[data-autonav]') as HTMLElement | null;
+				if (overlay && overlay.parentElement !== document.body) {
+					document.body.appendChild(overlay);
+				}
+			}, 0);
+
+		// 轮询等待 releases 加载完成，然后自动展开目标版本
+			function check() {
+				const r = repos[idx];
+				const key = k(r.owner, r.repo);
+				const state = dataMap[key];
+				if (state && !state.loading && state.releases.length > 0) {
+					let targetRel;
+					autoNavText = "正在查找版本…";
+					if (versionParam === "latest") {
+						targetRel = state.releases[0];
+						if (targetRel && state.currentPage !== 1) {
+							goPage(r.owner, r.repo, 1);
+						}
+					} else if (versionParam) {
+						targetRel = state.releases.find(rel => rel.tag_name === versionParam);
+						if (targetRel) {
+							const relIdx = state.releases.indexOf(targetRel);
+							const page = Math.floor(relIdx / PER_PAGE) + 1;
+							if (state.currentPage !== page) {
+								goPage(r.owner, r.repo, page);
+							}
+						}
+					}
+					if (targetRel) {
+						expandedRelease = targetRel.id;
+						// 先关闭遮罩，再触发测速，避免遮罩挡住测速窗口
+						const overlay = document.querySelector('.so[data-autonav]') as HTMLElement | null;
+						if (overlay) overlay.remove();
+						autoNavOverlay = false;
+					document.documentElement.style.overflow = '';
+					document.body.style.overflow = '';
+						// 清除 URL 参数
+						const url = new URL(window.location.href);
+						url.searchParams.delete("repo");
+						url.searchParams.delete("version");
+						url.searchParams.delete("open");
+						window.history.replaceState({}, "", url.toString());
+						// 自动选择第一个 .zip 文件触发下载测速
+						const zipAsset = targetRel.assets.find(a => /.zip$/i.test(a.name));
+						if (zipAsset) {
+							setTimeout(() => hd(zipAsset.browser_download_url, zipAsset.name), 150);
+						}
+					}
+					return;
+				}
+				requestAnimationFrame(check);
+			}
+			requestAnimationFrame(check);
+		requestAnimationFrame(check);
+	}
+
+	onMount(initAutoNav);
 </script>
 
 {#if view === "grid"}
@@ -143,72 +237,83 @@
 		{/each}
 	</div>
 {:else}
-	{@const r = repos[activeRepo]}
-	{@const key = k(r.owner, r.repo)}
-	{@const state = dataMap[key]}
+		{@const r = repos[activeRepo]}
+		{@const key = k(r.owner, r.repo)}
+		{@const state = dataMap[key]}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div in:scale={{ duration: 300, start: 0.9 }}>
 
-	<button class="back-btn" on:click={goGrid}><Icon icon="material-symbols:chevron-left-rounded" /> 返回仓库列表</button>
+		<button class="back-btn" on:click={goGrid}><Icon icon="material-symbols:chevron-left-rounded" /> 返回仓库列表</button>
 
-	<div class="detail-header">
-		{#if r.cover}<img src={r.cover} alt={r.label} class="detail-cover" />{/if}
-		<div><h2 class="detail-title">{r.label}</h2>{#if r.desc}<p class="detail-desc">{r.desc}</p>{/if}<p class="detail-path">{r.owner}/{r.repo}</p></div>
-	</div>
-
-	{#if state?.loading}
-		<div class="ls"><div class="sp" /><span>加载中...</span></div>
-	{:else if state?.error}
-		<div class="es"><Icon icon="material-symbols:error-outline-rounded" class="erricon" /><span>{state.error}</span></div>
-	{:else if state?.releases.length === 0}
-		<div class="es"><Icon icon="material-symbols:inbox-outline-rounded" class="erricon" /><span>暂无 release</span></div>
-	{:else}
-		{@const tp = totalPages(state)}
-		{@const pr = getPage(state)}
-		<div class="rl">
-			{#each pr as rel}
-				<div class="ri">
-					<button class="rh" on:click={() => toggleRelease(rel.id)}>
-						<div class="rinfo"><span class="rtag">{rel.tag_name}</span><span class="rdate"><Icon icon="material-symbols:calendar-month-outline-rounded" class="mi" />{fmtDate(rel.published_at)}</span></div>
-						<Icon icon="material-symbols:chevron-right-rounded" class={`ra${expandedRelease === rel.id ? ' ex' : ''}`} />
-					</button>
-					{#if expandedRelease === rel.id}
-						<div class="al">
-							{#each rel.assets as asset}
-								<a href="javascript:void(0)" on:click|preventDefault={() => hd(asset.browser_download_url, asset.name)} class="ai">
-									<div class="ainfo"><span class="aname">{asset.name}</span><span class="ameta">{fmtSize(asset.size)} · {asset.download_count} 次下载</span></div>
-									<span class="dl">下载</span>
-								</a>
-							{/each}
-							<a href={rel.html_url} target="_blank" rel="noopener noreferrer" class="vgh"><Icon icon="material-symbols:open-in-new-rounded" class="mi" />在 GitHub 查看</a>
-						</div>
-					{/if}
-				</div>
-			{/each}
+		<div class="detail-header">
+			{#if r.cover}<img src={r.cover} alt={r.label} class="detail-cover" />{/if}
+			<div><h2 class="detail-title">{r.label}</h2>{#if r.desc}<p class="detail-desc">{r.desc}</p>{/if}<p class="detail-path">{r.owner}/{r.repo}</p></div>
 		</div>
-		{#if tp > 1}
-			<div class="pw"><div class="pb" role="navigation">
-				<div class="mpg">
-					<button class="bp" disabled={state.currentPage <= 1} on:click={() => goPage(r.owner, r.repo, state.currentPage - 1)}><Icon icon="material-symbols:chevron-left-rounded" /></button>
-					<div class="bpi"><span class="bpc">{state.currentPage}</span><span class="bpd">/</span><span class="bpt">{tp}</span></div>
-					<button class="bp" disabled={state.currentPage >= tp} on:click={() => goPage(r.owner, r.repo, state.currentPage + 1)}><Icon icon="material-symbols:chevron-right-rounded" /></button>
-				</div>
-				<div class="dpg">
-					<button class="bp" disabled={state.currentPage <= 1} on:click={() => goPage(r.owner, r.repo, state.currentPage - 1)}><Icon icon="material-symbols:chevron-left-rounded" /></button>
-					{#each getPages(tp, state.currentPage) as p}
-						{#if p === -1}<span class="bpe"><Icon icon="material-symbols:more-horiz" /></span>
-						{:else if p === state.currentPage}<span class="bpa">{p}</span>
-						{:else}<button class="bp" on:click={() => goPage(r.owner, r.repo, p)}>{p}</button>{/if}
-					{/each}
-					<button class="bp" disabled={state.currentPage >= tp} on:click={() => goPage(r.owner, r.repo, state.currentPage + 1)}><Icon icon="material-symbols:chevron-right-rounded" /></button>
-				</div>
-			</div></div>
+
+		{#if state?.loading}
+			<div class="ls"><div class="sp" /><span>加载中...</span></div>
+		{:else if state?.error}
+			<div class="es"><Icon icon="material-symbols:error-outline-rounded" class="erricon" /><span>{state.error}</span></div>
+		{:else if state?.releases.length === 0}
+			<div class="es"><Icon icon="material-symbols:inbox-outline-rounded" class="erricon" /><span>暂无 release</span></div>
+		{:else}
+			{@const tp = totalPages(state)}
+			{@const pr = getPage(state)}
+			<div class="rl">
+				{#each pr as rel}
+					<div class="ri">
+						<button class="rh" on:click={() => toggleRelease(rel.id)}>
+							<div class="rinfo"><span class="rtag">{rel.tag_name}</span><span class="rdate"><Icon icon="material-symbols:calendar-month-outline-rounded" class="mi" />{fmtDate(rel.published_at)}</span></div>
+							<Icon icon="material-symbols:chevron-right-rounded" class={`ra${expandedRelease === rel.id ? ' ex' : ''}`} />
+						</button>
+						{#if expandedRelease === rel.id}
+							<div class="al">
+								{#if repos[activeRepo].prerequisite}
+									<a href={repos[activeRepo].prerequisite.url} target="_blank" rel="noopener noreferrer" class="prereq-btn">
+										<Icon icon="material-symbols:warning-rounded" class="prereq-icon" />
+										<span>下载前置模组：<strong>{repos[activeRepo].prerequisite.name}</strong></span>
+										<Icon icon="material-symbols:open-in-new-rounded" class="mi" />
+									</a>
+								{/if}
+								{#each rel.assets as asset}
+									<a href="javascript:void(0)" on:click|preventDefault={() => hd(asset.browser_download_url, asset.name)} class="ai">
+										<div class="ainfo"><span class="aname">{asset.name}</span><span class="ameta">{fmtSize(asset.size)} · {asset.download_count} 次下载</span></div>
+										<span class="dl">下载</span>
+									</a>
+								{/each}
+								<a href={rel.html_url} target="_blank" rel="noopener noreferrer" class="vgh"><Icon icon="material-symbols:open-in-new-rounded" class="mi" />在 GitHub 查看</a>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+			{#if tp > 1}
+				<div class="pw"><div class="pb" role="navigation">
+					<div class="mpg">
+						<button class="bp" disabled={state.currentPage <= 1} on:click={() => goPage(r.owner, r.repo, state.currentPage - 1)}><Icon icon="material-symbols:chevron-left-rounded" /></button>
+						<div class="bpi"><span class="bpc">{state.currentPage}</span><span class="bpd">/</span><span class="bpt">{tp}</span></div>
+						<button class="bp" disabled={state.currentPage >= tp} on:click={() => goPage(r.owner, r.repo, state.currentPage + 1)}><Icon icon="material-symbols:chevron-right-rounded" /></button>
+					</div>
+					<div class="dpg">
+						<button class="bp" disabled={state.currentPage <= 1} on:click={() => goPage(r.owner, r.repo, state.currentPage - 1)}><Icon icon="material-symbols:chevron-left-rounded" /></button>
+						{#each getPages(tp, state.currentPage) as p}
+							{#if p === -1}<span class="bpe"><Icon icon="material-symbols:more-horiz" /></span>
+							{:else if p === state.currentPage}<span class="bpa">{p}</span>
+							{:else}<button class="bp" on:click={() => goPage(r.owner, r.repo, p)}>{p}</button>{/if}
+						{/each}
+						<button class="bp" disabled={state.currentPage >= tp} on:click={() => goPage(r.owner, r.repo, state.currentPage + 1)}><Icon icon="material-symbols:chevron-right-rounded" /></button>
+					</div>
+				</div></div>
+			{/if}
 		{/if}
-	{/if}
+	</div>
 {/if}
 
 {#if dm}
 <div class="so" on:click={cm} role="dialog">
 <div class="sm" on:click={(e) => e.stopPropagation()}>
 <div class="sh"><h3 class="st">下载测速</h3><button class="sx" on:click={cm}><Icon icon="material-symbols:close-rounded" /></button></div>
+	<p style="text-align:center;font-size:.8rem;opacity:.55;margin:-.25rem 0 .5rem;">{df}</p>
 <div class="sr">
 {#each [...nr].sort((a, b) => b.speed - a.speed) as r}
 {@const b = [...nr].filter(x => x.status === "done").sort((a, b) => b.speed - a.speed)[0]}
@@ -224,4 +329,8 @@
 <p class="stip">测速数据仅供参考，实际下载请自行选择</p>
 </div>
 </div>
+{/if}
+
+{#if autoNavOverlay}
+	<div class="so" data-autonav="true" style="cursor:default;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);background:rgba(0,0,0,0.45);z-index:99999;"></div>
 {/if}
