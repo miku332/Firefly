@@ -23,15 +23,48 @@
 		dataMap[key] = { loading: true, error: "", releases: [], currentPage: 1 };
 		dataMap = dataMap;
 		try {
-			const all: Release[] = []; let page = 1; const pp = 100; let more = true;
+			// 将原始 API 数据映射为 Release
+			const mapRel = (r: any): Release => ({
+				id: r.id, tag_name: r.tag_name, name: r.name || r.tag_name,
+				published_at: r.published_at, html_url: r.html_url,
+				body: (r.body || "").slice(0, 500),
+				assets: (r.assets || []).map((a: any) => ({
+					name: a.name, size: a.size,
+					browser_download_url: a.browser_download_url,
+					download_count: a.download_count,
+				})),
+			});
+
+			const seen = new Set<number>();
+			const all: Release[] = [];
+
+			// 1) 先用 /releases/latest 拿最新版本（列表 API 有 CDN 缓存延迟，可能漏掉刚发布的版本）
+			const latestRes = await fetch(
+				`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/releases/latest`,
+				{ headers: { Accept: "application/vnd.github+json" }, cache: "no-cache" },
+			);
+			if (latestRes.ok) {
+				const latest = mapRel(await latestRes.json());
+				all.push(latest);
+				seen.add(latest.id);
+			}
+
+			// 2) 再拉取分页列表，去重后追加
+			let page = 1; const pp = 100; let more = true;
 			while (more) {
-				const res = await fetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/releases?per_page=${pp}&page=${page}`, { headers: { Accept: "application/vnd.github+json" } });
+				const res = await fetch(
+					`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/releases?per_page=${pp}&page=${page}`,
+					{ headers: { Accept: "application/vnd.github+json" }, cache: "no-cache" },
+				);
 				if (!res.ok) throw new Error(`GitHub API ${res.status}`);
 				const d: Release[] = await res.json();
-				all.push(...d);
+				for (const r of d) {
+					if (!seen.has(r.id)) { all.push(mapRel(r)); seen.add(r.id); }
+				}
 				if (d.length < pp) more = false; else page++;
 			}
-			dataMap[key] = { loading: false, error: "", releases: all.map(r => ({ id: r.id, tag_name: r.tag_name, name: r.name || r.tag_name, published_at: r.published_at, html_url: r.html_url, body: (r.body || "").slice(0, 500), assets: (r.assets || []).map(a => ({ name: a.name, size: a.size, browser_download_url: a.browser_download_url, download_count: a.download_count })) })), currentPage: 1 };
+
+			dataMap[key] = { loading: false, error: "", releases: all, currentPage: 1 };
 		} catch (e: any) {
 			dataMap[key] = { loading: false, error: e?.message || "加载失败", releases: [], currentPage: 1 };
 		}
