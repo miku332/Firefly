@@ -38,6 +38,6 @@ export const profileConfig: ProfileConfig = {
 			icon: "fa7-brands:tiktok",
 			url: "https://www.douyin.com/user/MS4wLjABAAAAK-xAVED5ss2YJTX3-gjpVoZVzRcjovNxtB2KCGSMfCCX2N0VZS5kl7UBnefalnt-?from_tab_name=main",
 			showName: false,
-		}
+		},
 	],
 };

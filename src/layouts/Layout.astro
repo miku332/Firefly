@@ -30,6 +30,7 @@ import { url } from "@/utils/url-utils";
 import "@/styles/main.css";
 import "@/styles/variables.styl";
 import "@/styles/markdown-extend.styl";
+import "@/styles/releases.css";
 import "@rehype-callouts-theme";
 
 interface Props {
@@ -718,6 +719,30 @@ const siteLang = lang.replace("_", "-");
       height: 4.5rem !important;
     }
   }
+
+  /* 移动端公告组件悬浮到右下角（通过 JS 移动到 body 下，避开 #main-grid transform 限制） */
+  @media (max-width: 767px) {
+    widget-layout[data-id="announcement"].mobile-floating-announcement {
+      position: fixed !important;
+      bottom: 5rem;
+      right: 0.75rem;
+      z-index: 999;
+      width: 260px;
+      max-width: calc(100vw - 1.5rem);
+      margin: 0 !important;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+      transition: bottom 0.3s ease;
+      pointer-events: auto;
+    }
+  }
+
+  @media (max-width: 480px) {
+    widget-layout[data-id="announcement"].mobile-floating-announcement {
+      right: 0.5rem;
+      width: 240px;
+      max-width: calc(100vw - 1rem);
+    }
+  }
 </style>
 
 <script>
@@ -995,6 +1020,8 @@ function disableAnimation() {
 
       // 更新侧边栏组件的可见性（根据新页面的 URL）
       updateSidebarComponentsVisibility();
+      // 更新移动端公告位置（延迟确保 BackToHome 等组件可见性已更新）
+      setTimeout(updateAnnouncementPosition, 150);
 
       // 只处理katex元素的容器，使用浏览器原生滚动条
       scheduleContentOverflowEnhancements();
@@ -1436,6 +1463,9 @@ function disableAnimation() {
       });
     }
 
+    // 更新移动端公告位置（悬浮按钮可见性可能已变化）
+    updateAnnouncementPosition();
+
     // 批量执行DOM操作
     if (operations.length > 0) {
       requestAnimationFrame(() => {
@@ -1469,6 +1499,11 @@ function disableAnimation() {
       `${offset}px`
     );
   };
+
+  // 移动端公告：窗口大小变化时重新评估是否需要移到 body 下
+  window.addEventListener("resize", () => {
+    setupMobileAnnouncement();
+  });
 
   // 页面加载完成后初始化banner和内容溢出容器
   if (document.readyState === "loading") {
@@ -1606,6 +1641,75 @@ function disableAnimation() {
     });
   }
 
+  // 将移动端公告 DOM 移到 body 下，使其 position:fixed 相对于视口而非 #main-grid（后者有 transform）
+  let _announcementNextSibling: Node | null = null;
+  let _announcementParent: Node | null = null;
+
+  function setupMobileAnnouncement() {
+    const announcement = document.querySelector(
+      "widget-layout[data-id=\"announcement\"]:is(#mobile-bottom-sidebar widget-layout[data-id=\"announcement\"], .mobile-floating-announcement)",
+    ) as HTMLElement | null;
+    if (!announcement) return;
+
+    const isMobile = window.innerWidth < 768;
+    const isFloating = announcement.classList.contains("mobile-floating-announcement");
+
+    if (isMobile && !isFloating) {
+      // 保存原位信息，然后移到 body
+      _announcementNextSibling = announcement.nextSibling;
+      _announcementParent = announcement.parentNode;
+      announcement.classList.add("mobile-floating-announcement");
+      document.body.appendChild(announcement);
+      updateAnnouncementPosition();
+    } else if (!isMobile && isFloating) {
+      // 恢复到移动端底部侧边栏
+      announcement.classList.remove("mobile-floating-announcement");
+      announcement.style.bottom = "";
+      const targetParent = _announcementParent || document.getElementById("mobile-bottom-sidebar")?.querySelector(".flex.flex-col");
+      if (targetParent) {
+        if (_announcementNextSibling && _announcementNextSibling.parentNode === targetParent) {
+          targetParent.insertBefore(announcement, _announcementNextSibling);
+        } else {
+          targetParent.appendChild(announcement);
+        }
+      }
+    }
+  }
+
+  // 移动端公告组件位置更新 — 根据悬浮按钮可见性自动调整
+  function updateAnnouncementPosition() {
+    if (window.innerWidth >= 768) return; // 仅移动端处理
+
+    const announcement = document.querySelector(
+      "widget-layout[data-id=\"announcement\"].mobile-floating-announcement",
+    ) as HTMLElement | null;
+    if (!announcement || announcement.classList.contains("hidden") || announcement.style.display === "none") return;
+
+    const container = document.querySelector(".floating-controls-container");
+    if (!container) return;
+
+    // 计算可见悬浮按钮占用的总高度
+    const buttons = container.querySelectorAll(".floating-btn");
+    let visibleHeight = 0;
+    let visibleCount = 0;
+
+    buttons.forEach((btn) => {
+      if (!btn.classList.contains("hide")) {
+        visibleHeight += (btn as HTMLElement).offsetHeight;
+        visibleCount++;
+      }
+    });
+
+    // 按钮间隙 (0.5rem gap ≈ 8px at 16px base)
+    if (visibleCount > 1) {
+      visibleHeight += (visibleCount - 1) * 8;
+    }
+
+    // 容器 bottom: 4rem (64px) + 可见按钮高度 + 1rem (16px) 安全间距
+    const newBottomPx = 64 + visibleHeight + 16;
+    announcement.style.bottom = `${Math.max(80, newBottomPx) / 16}rem`;
+  }
+
   // Initialize wallpaper mode
   import { initWallpaperMode, initThemeListener } from "@/utils/setting-utils";
   import { initIconLoader } from "@/utils/icon-loader";
@@ -1613,6 +1717,8 @@ function disableAnimation() {
     document.addEventListener("DOMContentLoaded", () => {
       updateMainGridCols();
       updateSidebarComponentsVisibility();
+      setupMobileAnnouncement();
+      setTimeout(updateAnnouncementPosition, 150);
       initWallpaperMode();
       initThemeListener();
       initIconLoader();
@@ -1620,6 +1726,8 @@ function disableAnimation() {
   } else {
     updateMainGridCols();
     updateSidebarComponentsVisibility();
+    setupMobileAnnouncement();
+    setTimeout(updateAnnouncementPosition, 150);
     initWallpaperMode();
     initThemeListener();
     initIconLoader();
