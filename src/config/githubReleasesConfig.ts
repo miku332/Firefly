@@ -21,6 +21,13 @@ export interface GitHubRepo {
 export const githubReleasesConfig = {
 	repos: [
 		{
+			owner: "ModinMobileSTS",
+			repo: "Sts2MobileLauncher",
+			label: "塔2手机版",
+			desc: "杀戮尖塔2 手机版启动器",
+			cover: "/covers/Sts2MobileLauncher.png",
+		},
+		{
 			owner: "Alchyr",
 			repo: "BaseLib-StS2",
 			label: "BaseLib",

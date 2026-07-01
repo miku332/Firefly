@@ -47,7 +47,19 @@ export const sponsorConfig: SponsorConfig = {
 			avatar:
 				"https://pic.miku233.xyz/file/1782904704275_墨羽离.png",
 			amount: "¥5",
-			date: "20256-07-01",
+			date: "2026-07-01",
+		},
+		{
+			name: "黄狗换太子",
+			avatar: "",
+			amount: "¥1",
+			date: "2026-06-29",
+		},
+		{
+			name: "*洲",
+			avatar: "",
+			amount: "¥1",
+			date: "2026-06-30",
 		},
 	],
 };
