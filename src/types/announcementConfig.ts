@@ -11,4 +11,10 @@ export type AnnouncementConfig = {
 		url: string; // 链接地址
 		external?: boolean; // 是否外部链接
 	};
+	extraLink?: {
+		enable: boolean;
+		text: string;
+		url: string;
+		external?: boolean;
+	};
 };

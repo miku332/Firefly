@@ -34,7 +34,7 @@ const showTitle = widgetConfig?.showTitle !== false;
 
     <!-- 可选链接和关闭按钮 -->
     <div class="flex items-center justify-between gap-3">
-      <div>
+      <div class="flex items-center gap-2">
         {
           config.link && config.link.enable !== false && (
             <a
@@ -44,6 +44,18 @@ const showTitle = widgetConfig?.showTitle !== false;
               class="btn-regular rounded-lg px-3 py-1.5 text-sm font-medium active:scale-95 transition-transform"
             >
               {config.link.text}
+            </a>
+          )
+        }
+        {
+          config.extraLink && config.extraLink.enable !== false && (
+            <a
+              href={config.extraLink.url}
+              target={config.extraLink.external ? "_blank" : "_self"}
+              rel={config.extraLink.external ? "noopener noreferrer" : undefined}
+              class="btn-regular rounded-lg px-3 py-1.5 text-sm font-medium active:scale-95 transition-transform"
+            >
+              {config.extraLink.text}
             </a>
           )
         }
