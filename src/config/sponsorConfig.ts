@@ -40,4 +40,14 @@ export const sponsorConfig: SponsorConfig = {
 			enabled: true,
 		},
 	],
+		sponsors: [
+		// 示例：已实名打赏者
+		{
+			name: "墨羽离",
+			avatar:
+				"https://pic.miku233.xyz/file/1782904704275_墨羽离.png",
+			amount: "¥5",
+			date: "20256-07-01",
+		},
+	],
 };
