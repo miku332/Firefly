@@ -62,5 +62,19 @@ export const githubReleasesConfig = {
 			desc: "杀戮尖塔2 联机大厅模组",
 			cover: "/covers/STS2-Game-Lobby.png",
 		},
+		{
+			owner: "lf201014",
+			repo: "STS2_MarisaMod",
+			label: "魔理沙",
+			desc: "杀戮尖塔2 魔理沙模组",
+			cover: "/covers/Marisa.png",
+		},
+		{
+			owner: "ModinMobileSTS",
+			repo: "Sts2MobileLauncher",
+			label: "塔2手机版",
+			desc: "杀戮尖塔2 手机版启动器",
+			cover: "/covers/Sts2MobileLauncher.png",
+		},
 	] as GitHubRepo[],
 };

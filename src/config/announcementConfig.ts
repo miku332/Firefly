@@ -5,7 +5,7 @@ export const announcementConfig: AnnouncementConfig = {
 	title: "公告",
 
 	// 公告内容
-	content: "点击下方按钮跳转到下载前置模组页面",
+	content: "点击下方按钮跳转到塔二手机版/前置模组下载页面",
 
 	// 是否允许用户关闭公告
 	closable: true,
