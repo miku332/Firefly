@@ -46,7 +46,7 @@ export const githubReleasesConfig = {
 			repo: "Sts2-YuWanCard",
 			label: "YuWan Card",
 			desc: "杀戮尖塔2 YuWan Card 模组",
-			cover: "/covers/yuwancard.png",
+			cover: "/covers/YuWan Card.png",
 		},
 		{
 			owner: "emptylower",
