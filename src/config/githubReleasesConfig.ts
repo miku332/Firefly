@@ -48,5 +48,12 @@ export const githubReleasesConfig = {
 			desc: "杀戮尖塔2 YuWan Card 模组",
 			cover: "/covers/yuwancard.png",
 		},
+		{
+			owner: "emptylower",
+			repo: "STS2-Game-Lobby",
+			label: "联机大厅",
+			desc: "杀戮尖塔2 联机大厅模组",
+			cover: "/covers/STS2-Game-Lobby.png",
+		},
 	] as GitHubRepo[],
 };
